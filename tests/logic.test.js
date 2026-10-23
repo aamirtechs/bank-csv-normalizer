@@ -1,0 +1,9 @@
+const test=require("node:test");const assert=require("node:assert/strict");const L=require("../src/logic.js");
+test("parse amount handles commas parens currency",()=>{assert.equal(L.parseAmount("1,234.50"),1234.5);assert.equal(L.parseAmount("(45.00)"),-45);assert.equal(L.parseAmount("$12.00"),12);});
+test("debit credit normalisation",()=>{assert.equal(L.normalizeAmount({Debit:"20.00",Credit:""}, {debit:"Debit",credit:"Credit"}),-20);assert.equal(L.normalizeAmount({Debit:"",Credit:"50"}, {debit:"Debit",credit:"Credit"}),50);});
+test("date parsing DMY vs MDY explicit",()=>{assert.equal(L.parseDate("03/04/2026","DMY"),"2026-04-03");assert.equal(L.parseDate("03/04/2026","MDY"),"2026-03-04");assert.equal(L.parseDate("2026-01-15","DMY"),"2026-01-15");});
+test("payee cleanup collapses spaces and strips trailing ref",()=>{assert.equal(L.cleanPayee("COFFEE  SHOP  123456"),"COFFEE SHOP");});
+test("contains rule categorises",()=>{const r=L.applyRules("STARBUCKS STORE",[{type:"contains",pattern:"starbucks",category:"Coffee"}]);assert.equal(r.category,"Coffee");});
+test("regex rule categorises",()=>{const r=L.applyRules("PAYROLL ACME",[{type:"regex",pattern:"^PAYROLL",category:"Income"}]);assert.equal(r.category,"Income");});
+test("duplicate detection",()=>{const rows=[{date:"2026-01-01",payee:"A",amount:10},{date:"2026-01-01",payee:"A",amount:10},{date:"2026-01-02",payee:"B",amount:5}];assert.deepEqual(L.detectDuplicates(rows),[1]);});
+test("normalize rows end to end and export",()=>{const p=L.parseCSV("Date,Description,Debit,Credit\n05/01/2026,COFFEE SHOP,4.50,\n06/01/2026,SALARY,,1000");const out=L.normalizeRows(p,{date:"Date",payee:"Description",debit:"Debit",credit:"Credit"},{dateOrder:"DMY"});assert.equal(out[0].amount,-4.5);assert.equal(out[1].amount,1000);assert.equal(out[0].date,"2026-01-05");assert.match(L.toCleanCSV(out),/date,payee,amount,category/);});
